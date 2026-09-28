@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Educational Portal</title>
+
+    <!-- Подключение библиотек -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+    <style>
+        /* Современный дизайн и переменные */
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f9fafb;
+            --card: #ffffff;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --border: #e5e7eb;
+            --danger: #ef4444;
+            --success: #10b981;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --radius: 12px;
+        }
+
+        * { box-sizing: border-box; font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; }
+        body { margin: 0; background: var(--bg); color: var(--text); padding-bottom: 60px; }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+        
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); margin-bottom: 24px; transition: transform 0.2s ease; }
+        
+        h1, h2, h3, h4 { margin-top: 0; color: #111827; }
+        
+        /* Формы и инпуты */
+        input[type="text"], input[type="password"], input[type="number"], select, textarea { 
+            width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; font-size: 1rem; outline: none; transition: all 0.2s; background: #fdfdfd;
+        }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); background: #fff; }
+        
+        /* Кнопки */
+        .btn { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 1rem; cursor: pointer; font-weight: 500; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
+        .btn-danger { background: var(--danger); }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-success { background: var(--success); }
+        .btn-success:hover { background: #059669; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        .btn-outline:hover { background: #f3f4f6; color: #111827; }
+        .btn-small { padding: 6px 12px; font-size: 0.875rem; }
+
+        .flex { display: flex; gap: 12px; align-items: center; }
+        .flex-col { display: flex; flex-direction: column; gap: 12px; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+
+        /* Таблицы */
+        .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; background: #fff; }
+        th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: #f9fafb; font-weight: 600; color: var(--text-light); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+        tr:hover { background: #f8fafc; }
+
+        .hidden { display: none !important; }
+
+        /* Вкладки */
+        .tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 24px; gap: 8px; }
+        .tab { padding: 12px 24px; cursor: pointer; border-bottom: 2px solid transparent; font-weight: 500; color: var(--text-light); transition: all 0.2s; border-radius: 8px 8px 0 0; }
+        .tab:hover { color: var(--text); background: #f3f4f6; }
+        .tab.active { border-bottom-color: var(--primary); color: var(--primary); background: transparent; }
+
+        /* Хедер */
+        .nav-header { background: var(--card); padding: 16px 32px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; }
+
+        /* Модальные окна */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(17, 24, 39, 0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; backdrop-filter: blur(4px); opacity: 0; visibility: hidden; transition: all 0.3s; }
+        .modal-overlay.show { opacity: 1; visibility: visible; }
+        .modal { background: var(--card); padding: 32px; border-radius: var(--radius); width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); transform: translateY(20px); transition: all 0.3s; }
+        .modal-overlay.show .modal { transform: translateY(0); }
+
+        /* Конструктор вопросов */
+        .q-constructor-card { background: #fff; border: 1px solid var(--border); border-left: 4px solid var(--primary); border-radius: 8px; padding: 20px; margin-bottom: 16px; cursor: grab; transition: box-shadow 0.2s; }
+        .q-constructor-card:hover { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .q-constructor-card:active { cursor: grabbing; }
+
+        /* Бейджи статусов */
+        .status-badge { padding: 6px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+        .status-open { background: #d1fae5; color: #065f46; }
+        .status-closed { background: #fee2e2; color: #991b1b; }
+
+        /* Секретная кнопка админа (верхний правый угол) */
+        #secret-admin-trigger {
+            position: fixed;
+            top: 16px;
+            right: 20px;
+            font-size: 28px;
+            cursor: pointer;
+            opacity: 0; /* По умолчанию прозрачная */
+            z-index: 9999;
+            transition: opacity 0.3s ease, transform 0.2s ease;
+            user-select: none;
+        }
+        #secret-admin-trigger:hover {
+            opacity: 1; /* При наведении становится видимым сердечком */
+            transform: scale(1.1);
+        }
+
+        /* Чекбоксы и радио-кнопки */
+        label.flex { padding: 12px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: 0.2s; margin-bottom: 8px; }
+        label.flex:hover { background: #f9fafb; border-color: #d1d5db; }
+        input[type="radio"], input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; margin: 0; }
+
+        .student-answer-row { padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid var(--border); }
+        .correct-ans { background: #ecfdf5; border-color: #a7f3d0; }
+        .wrong-ans { background: #fef2f2; border-color: #fecaca; }
+        
+        #guest-screen-msg { text-align: center; margin-top: 20vh; color: var(--text-light); }
+    </style>
+</head>
+<body>
+
+    <!-- Секретная кнопка авторизации (в правом верхнем углу, становится ❤️) -->
+    <div id="secret-admin-trigger" onclick="openAuthModal()" title="Секретный вход">❤️</div>
+
+    <!-- Модальное окно авторизации -->
+    <div id="auth-modal" class="modal-overlay">
+        <div class="modal">
+            <h2>Вход в систему</h2>
+            <p style="color: var(--text-light); margin-bottom: 20px;">Введите логин и пароль для доступа к панели управления.</p>
+            <input type="text" id="auth-login" placeholder="Логин">
+            <input type="password" id="auth-pass" placeholder="Пароль">
+            <div class="flex" style="justify-content: flex-end; margin-top: 24px;">
+                <button class="btn btn-outline" onclick="closeAuthModal()">Отмена</button>
+                <button class="btn" onclick="handleLogin()">Войти</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Общий Хедер -->
+    <header id="main-header" class="nav-header hidden">
+        <div style="font-weight: 700; font-size: 1.25rem; color: var(--primary);">EduPortal</div>
+        <div class="flex">
+            <span id="header-user-info" style="color: var(--text-light); font-weight: 500;"></span>
+            <button class="btn btn-outline btn-small" onclick="logout()">Выйти</button>
+        </div>
+    </header>
+
+    <!-- Гостевой экран (если нет ID теста и не авторизован) -->
+    <div id="screen-guest" class="screen hidden">
+        <div class="container" id="guest-screen-msg">
+            <h2>Платформа тестирования</h2>
+            <p style="margin-bottom: 30px;">Для прохождения теста перейдите по ссылке, выданной преподавателем.</p>
+            <div style="display: flex; justify-content: center;">
+                <button class="btn" style="padding: 14px 40px; font-size: 1.1rem; box-shadow: var(--shadow);" onclick="openAuthModal()">Войти</button>
+            </div>
+            <p style="color: var(--text-light); font-size: 0.85rem; margin-top: 16px;">(Панель управления преподавателя)</p>
+        </div>
+    </div>
+
+    <!-- ================= ЭКРАН СТУДЕНТА ================= -->
+    <div id="screen-student" class="screen hidden">
+        <div class="container" id="student-content">
+            <!-- Рендерится динамически -->
+        </div>
+    </div>
+
+    <!-- ================= ЭКРАН ПРЕПОДАВАТЕЛЯ ================= -->
+    <div id="screen-teacher" class="screen hidden">
+        <div class="container">
+            <div class="tabs">
+                <div class="tab active" onclick="switchTeacherTab('tab-my-tests')">Мои тесты</div>
+                <div class="tab" onclick="switchTeacherTab('tab-constructor')">Конструктор</div>
+                <div class="tab" onclick="switchTeacherTab('tab-results')">Результаты</div>
+            </div>
+
+            <!-- Мои тесты -->
+            <div id="tab-my-tests" class="teacher-tab">
+                <div class="card">
+                    <div class="flex-between" style="margin-bottom: 20px;">
+                        <h2 style="margin:0;">Созданные тесты и анкеты</h2>
+                        <button class="btn" onclick="switchTeacherTab('tab-constructor')">+ Создать новый</button>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead><tr><th>Название</th><th>Тип</th><th>Статус</th><th>Действия</th></tr></thead>
+                            <tbody id="teacher-tests-table"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Конструктор -->
+            <div id="tab-constructor" class="teacher-tab hidden">
+                <div class="card">
+                    <div class="flex-between" style="margin-bottom: 24px;">
+                        <h2 style="margin:0;">Конструктор</h2>
+                        <button class="btn btn-success" onclick="saveSurvey()">Сохранить и опубликовать</button>
+                    </div>
+                    
+                    <div class="flex" style="gap: 16px; align-items: start;">
+                        <div style="flex: 1;">
+                            <label style="font-size: 0.875rem; color: var(--text-light); font-weight: 500;">Название</label>
+                            <input type="text" id="const-title" placeholder="Например: Итоговый тест по математике">
+                        </div>
+                        <div style="width: 250px;">
+                            <label style="font-size: 0.875rem; color: var(--text-light); font-weight: 500;">Тип формы</label>
+                            <select id="const-type" onchange="toggleConstructorPoints()">
+                                <option value="test">Тест (с баллами)</option>
+                                <option value="survey">Анкета (без баллов)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <label style="font-size: 0.875rem; color: var(--text-light); font-weight: 500;">Описание (необязательно)</label>
+                    <textarea id="const-desc" placeholder="Инструкция для студентов..." rows="2"></textarea>
+
+                    <h3 style="margin-top: 32px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">Вопросы</h3>
+                    <div id="constructor-questions"></div>
+                    
+                    <button class="btn btn-outline" style="width: 100%; margin-top: 16px; border-style: dashed; padding: 16px;" onclick="addQuestion()">
+                        + Добавить вопрос
+                    </button>
+                </div>
+            </div>
+
+            <!-- Результаты -->
+            <div id="tab-results" class="teacher-tab hidden">
+                <div class="card">
+                    <h2 style="margin-top:0;">Результаты прохождения</h2>
+                    <div class="flex" style="margin-bottom: 20px;">
+                        <select id="results-test-select" onchange="loadResults()" style="max-width: 400px; margin-bottom: 0;"></select>
+                        <button class="btn btn-outline" onclick="exportResultsToExcel()" id="btn-export" disabled>Выгрузить в Excel</button>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead><tr><th>ФИО</th><th>Группа</th><th>Дата сдачи</th><th>Баллы</th><th>Ответы</th></tr></thead>
+                            <tbody id="teacher-results-table">
+                                <tr><td colspan="5" style="text-align: center; color: var(--text-light);">Выберите тест для просмотра результатов</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка просмотра результатов студента -->
+    <div id="result-details-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 700px;">
+            <div class="flex-between" style="margin-bottom: 24px;">
+                <h3 style="margin:0;">Бланк ответов студента</h3>
+                <button class="btn btn-outline btn-small" onclick="closeResultModal()">✕</button>
+            </div>
+            <div id="result-details-content"></div>
+        </div>
+    </div>
+
+    <!-- ================= ЭКРАН СУПЕРАДМИНА ================= -->
+    <div id="screen-admin" class="screen hidden">
+        <div class="container">
+            <div class="card">
+                <div class="flex-between" style="margin-bottom: 20px;">
+                    <h2 style="margin:0;">Преподаватели</h2>
+                    <button class="btn" onclick="openCreateTeacherModal()">+ Добавить преподавателя</button>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>ФИО</th><th>Логин</th><th>Пароль</th><th>Статус</th><th>Действия</th></tr></thead>
+                        <tbody id="admin-teachers-table"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card" style="max-width: 500px;">
+                <h3 style="margin-top:0;">Безопасность (Суперадмин)</h3>
+                <label style="font-size: 0.875rem; color: var(--text-light);">Изменить пароль администратора</label>
+                <div class="flex" style="margin-top: 8px;">
+                    <input type="password" id="admin-new-pass" placeholder="Новый пароль" style="margin:0;">
+                    <button class="btn" onclick="changeAdminPassword()">Обновить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка создания учителя -->
+    <div id="create-teacher-modal" class="modal-overlay">
+        <div class="modal">
+            <h2>Новый преподаватель</h2>
+            <div class="flex-col" style="margin-top: 16px;">
+                <input type="text" id="t-name" placeholder="Фамилия Имя Отчество">
+                <input type="text" id="t-login" placeholder="Логин для входа">
+                <input type="text" id="t-pass" placeholder="Пароль (будет сохранен в открытом виде)">
+            </div>
+            <div class="flex" style="justify-content: flex-end; margin-top: 24px;">
+                <button class="btn btn-outline" onclick="closeCreateTeacherModal()">Отмена</button>
+                <button class="btn" onclick="createTeacher()">Создать профиль</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= JAVASCRIPT ================= -->
+    <script>
+        // Инициализация Firebase (Используются ключи из ТЗ)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBkRnmxSuS0E5DLmx3LjQu37QW9PTLdfDM",
+            authDomain: "basestudy-3f930.firebaseapp.com",
+            projectId: "basestudy-3f930",
+            storageBucket: "basestudy-3f930.firebasestorage.app",
+            messagingSenderId: "515698187472",
+            appId: "1:515698187472:web:e83b95d4edfb2bf7a152d5",
+            measurementId: "G-Y2ELJDLFVS"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Глобальное состояние
+        let currentUser = JSON.parse(localStorage.getItem('user')) || null;
+        let urlParams = new URLSearchParams(window.location.search);
+        let currentSurveyId = urlParams.get('id');
+        
+        let editingSurvey = { title: '', description: '', type: 'test', questions: [] };
+        let studentAnswers = {};
+        let currentClientSurveyData = null;
+        let isTestOpenClientSide = false;
+        let studentListenerUnsubscribe = null;
+
+        // Утилиты
+        const generateId = () => Math.random().toString(36).substr(2, 9);
+        const showModal = (id) => document.getElementById(id).classList.add('show');
+        const hideModal = (id) => document.getElementById(id).classList.remove('show');
+
+        // Роутинг
+        window.onload = async () => {
+            if (currentSurveyId) {
+                initStudentMode();
+            } else {
+                await checkSuperAdminExistence();
+                if (currentUser) {
+                    document.getElementById('main-header').classList.remove('hidden');
+                    document.getElementById('header-user-info').innerText = `${currentUser.name} (${currentUser.role === 'superadmin' ? 'Администратор' : 'Преподаватель'})`;
+                    if (currentUser.role === 'superadmin') initAdminMode();
+                    else if (currentUser.role === 'teacher') initTeacherMode();
+                } else {
+                    showScreen('screen-guest');
+                }
+            }
+        };
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        // ================= АВТОРИЗАЦИЯ =================
+        function openAuthModal() { showModal('auth-modal'); }
+        function closeAuthModal() { hideModal('auth-modal'); }
+        
+        async function handleLogin() {
+            const loginStr = document.getElementById('auth-login').value.trim();
+            const passStr = document.getElementById('auth-pass').value.trim();
+            if (!loginStr || !passStr) return alert("Введите логин и пароль");
+
+            try {
+                const snap = await db.collection('users').where('login', '==', loginStr).where('password', '==', passStr).get();
+                if (snap.empty) return alert("Неверный логин или пароль");
+                
+                const userData = { id: snap.docs[0].id, ...snap.docs[0].data() };
+                if (userData.isFrozen) return alert("Ваш аккаунт заблокирован администратором");
+
+                localStorage.setItem('user', JSON.stringify(userData));
+                window.location.reload();
+            } catch (e) {
+                alert("Ошибка БД. Проверьте Security Rules в Firestore: allow read, write: if true;");
+                console.error(e);
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('user');
+            window.location.reload();
+        }
+
+        // ================= СУПЕРАДМИН =================
+        async function checkSuperAdminExistence() {
+            try {
+                const snap = await db.collection('users').where('role', '==', 'superadmin').get();
+                if (snap.empty) {
+                    await db.collection('users').add({
+                        login: 'admin', password: 'admin123', role: 'superadmin', name: 'Главный Администратор', isFrozen: false, createdAt: new Date().toISOString()
+                    });
+                    console.log("Суперадмин создан: admin / admin123");
+                }
+            } catch (e) {
+                console.error("Ошибка проверки суперадмина. Firestore недоступен или закрыт правилами Rules.", e);
+            }
+        }
+
+        function initAdminMode() {
+            showScreen('screen-admin');
+            loadTeachers();
+        }
+
+        async function loadTeachers() {
+            const snap = await db.collection('users').where('role', '==', 'teacher').get();
+            const tbody = document.getElementById('admin-teachers-table');
+            tbody.innerHTML = '';
+            
+            if (snap.empty) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Преподавателей пока нет</td></tr>';
+                return;
+            }
+
+            snap.forEach(doc => {
+                const t = doc.data();
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="font-weight: 500;">${t.name}</td>
+                        <td>${t.login}</td>
+                        <td style="font-family: monospace; background: #f3f4f6; padding: 4px 8px; border-radius: 4px;">${t.password}</td>
+                        <td>${t.isFrozen ? '<span class="status-badge status-closed">Заблокирован</span>' : '<span class="status-badge status-open">Активен</span>'}</td>
+                        <td>
+                            <button class="btn btn-small ${t.isFrozen ? 'btn-success' : 'btn-outline'}" onclick="toggleFreezeTeacher('${doc.id}', ${t.isFrozen})">${t.isFrozen ? 'Разблокировать' : 'Заблокировать'}</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteTeacher('${doc.id}')">Удалить</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openCreateTeacherModal() { showModal('create-teacher-modal'); }
+        function closeCreateTeacherModal() { 
+            hideModal('create-teacher-modal');
+            document.getElementById('t-name').value = '';
+            document.getElementById('t-login').value = '';
+            document.getElementById('t-pass').value = '';
+        }
+
+        async function createTeacher() {
+            const name = document.getElementById('t-name').value.trim();
+            const login = document.getElementById('t-login').value.trim();
+            const pass = document.getElementById('t-pass').value.trim();
+            if (!name || !login || !pass) return alert("Заполните все поля");
+            
+            // Проверка на уникальность логина
+            const exist = await db.collection('users').where('login', '==', login).get();
+            if (!exist.empty) return alert("Пользователь с таким логином уже существует");
+
+            await db.collection('users').add({ name, login, password: pass, role: 'teacher', isFrozen: false, createdAt: new Date().toISOString() });
+            closeCreateTeacherModal();
+            loadTeachers();
+        }
+
+        async function toggleFreezeTeacher(id, currentStatus) {
+            await db.collection('users').doc(id).update({ isFrozen: !currentStatus });
+            loadTeachers();
+        }
+
+        async function deleteTeacher(id) {
+            if(confirm("Вы уверены, что хотите безвозвратно удалить преподавателя?")) {
+                await db.collection('users').doc(id).delete();
+                loadTeachers();
+            }
+        }
+
+        async function changeAdminPassword() {
+            const newPass = document.getElementById('admin-new-pass').value.trim();
+            if (!newPass) return alert("Введите новый пароль");
+            await db.collection('users').doc(currentUser.id).update({ password: newPass });
+            alert("Пароль администратора успешно изменен!");
+            document.getElementById('admin-new-pass').value = '';
+            currentUser.password = newPass;
+            localStorage.setItem('user', JSON.stringify(currentUser));
+        }
+
+        // ================= ПРЕПОДАВАТЕЛЬ =================
+        function initTeacherMode() {
+            showScreen('screen-teacher');
+            loadMyTests();
+            loadTestsForResultsSelect();
+            renderConstructor();
+        }
+
+        function switchTeacherTab(tabId) {
+            document.querySelectorAll('.teacher-tab').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+            document.querySelectorAll('.tabs .tab').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        // -- Мои тесты --
+        function loadMyTests() {
+            // Используем onSnapshot для реал-тайм обновления статуса
+            db.collection('surveys').where('authorLogin', '==', currentUser.login)
+              .onSnapshot(snap => {
+                const tbody = document.getElementById('teacher-tests-table');
+                tbody.innerHTML = '';
+                
+                if (snap.empty) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">У вас пока нет тестов</td></tr>';
+                    return;
+                }
+
+                snap.forEach(doc => {
+                    const s = doc.data();
+                    const link = `${window.location.origin}${window.location.pathname}?id=${doc.id}`;
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>${s.title}</strong><br><small style="color:var(--text-light)">Вопросов: ${s.questions.length}</small></td>
+                            <td>${s.type === 'test' ? 'Тест (с баллами)' : 'Анкета'}</td>
+                            <td>${s.isOpen ? '<span class="status-badge status-open">Идет прием ответов</span>' : '<span class="status-badge status-closed">Доступ закрыт</span>'}</td>
+                            <td>
+                                <button class="btn btn-small ${s.isOpen ? 'btn-danger' : 'btn-success'}" onclick="toggleTestStatus('${doc.id}', ${s.isOpen})">${s.isOpen ? 'Остановить' : 'Запустить'}</button>
+                                <button class="btn btn-outline btn-small" onclick="navigator.clipboard.writeText('${link}'); alert('Ссылка скопирована для отправки студентам!')">Копировать ссылку</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            });
+        }
+
+        async function toggleTestStatus(id, isOpen) {
+            await db.collection('surveys').doc(id).update({ isOpen: !isOpen });
+        }
+
+        // -- Конструктор --
+        function toggleConstructorPoints() {
+            editingSurvey.type = document.getElementById('const-type').value;
+            renderConstructor();
+        }
+
+        function addQuestion() {
+            editingSurvey.questions.push({
+                id: generateId(), text: '', type: 'radio', points: 1, options: ['Вариант 1', 'Вариант 2'], correctAnswers: ['Вариант 1']
+            });
+            renderConstructor();
+        }
+
+        function updateQ(qId, field, value) {
+            const q = editingSurvey.questions.find(x => x.id === qId);
+            if (field === 'points') q.points = Number(value);
+            else q[field] = value;
+            
+            if (field === 'type') {
+                if (value === 'text') q.correctAnswers = [''];
+                else q.correctAnswers = [q.options[0] || ''];
+            }
+            renderConstructor();
+        }
+
+        function addOption(qId) {
+            const q = editingSurvey.questions.find(x => x.id === qId);
+            q.options.push(`Вариант ${q.options.length + 1}`);
+            renderConstructor();
+        }
+
+        function updateOption(qId, index, val) {
+            const q = editingSurvey.questions.find(x => x.id === qId);
+            const oldVal = q.options[index];
+            q.options[index] = val;
+            
+            const cIndex = q.correctAnswers.indexOf(oldVal);
+            if (cIndex !== -1) q.correctAnswers[cIndex] = val;
+        }
+
+        function removeOption(qId, index) {
+            const q = editingSurvey.questions.find(x => x.id === qId);
+            if (q.options.length <= 1) return alert("Должен быть хотя бы один вариант");
+            const val = q.options[index];
+            q.options.splice(index, 1);
+            q.correctAnswers = q.correctAnswers.filter(ans => ans !== val);
+            if (q.correctAnswers.length === 0 && q.type !== 'text') q.correctAnswers.push(q.options[0]);
+            renderConstructor();
+        }
+
+        function toggleCorrect(qId, val, isCheckbox) {
+            const q = editingSurvey.questions.find(x => x.id === qId);
+            if (isCheckbox) {
+                if (q.correctAnswers.includes(val)) q.correctAnswers = q.correctAnswers.filter(ans => ans !== val);
+                else q.correctAnswers.push(val);
+            } else {
+                q.correctAnswers = [val];
+            }
+        }
+
+        function updateCorrectText(qId, val) {
+            const q = editingSurvey.questions.find(x => x.id === qId);
+            q.correctAnswers = [val];
+        }
+
+        function removeQuestion(qId) {
+            editingSurvey.questions = editingSurvey.questions.filter(x => x.id !== qId);
+            renderConstructor();
+        }
+
+        function renderConstructor() {
+            const container = document.getElementById('constructor-questions');
+            const isTest = editingSurvey.type === 'test';
+            
+            if (editingSurvey.questions.length === 0) {
+                container.innerHTML = '<div style="color: var(--text-light); text-align: center; padding: 20px;">Добавьте первый вопрос, чтобы начать</div>';
+                return;
+            }
+
+            container.innerHTML = editingSurvey.questions.map((q, i) => `
+                <div class="q-constructor-card" data-id="${q.id}">
+                    <div class="flex-between" style="margin-bottom: 16px;">
+                        <strong style="font-size: 1.1rem; color: var(--primary);">Вопрос ${i + 1}</strong>
+                        <button type="button" class="btn btn-outline btn-small" onclick="removeQuestion('${q.id}')">Удалить</button>
+                    </div>
+                    
+                    <input type="text" placeholder="Текст вопроса..." value="${q.text}" onchange="updateQ('${q.id}', 'text', this.value)" style="font-weight: 500;">
+                    
+                    <div class="flex" style="margin-bottom: 16px; flex-wrap: wrap;">
+                        <select onchange="updateQ('${q.id}', 'type', this.value)" style="margin:0; width: 220px;">
+                            <option value="radio" ${q.type === 'radio' ? 'selected' : ''}>Один вариант</option>
+                            <option value="checkbox" ${q.type === 'checkbox' ? 'selected' : ''}>Несколько вариантов</option>
+                            <option value="select" ${q.type === 'select' ? 'selected' : ''}>Выпадающий список</option>
+                            <option value="text" ${q.type === 'text' ? 'selected' : ''}>Свободный текст</option>
+                        </select>
+                        ${isTest ? `
+                            <div class="flex" style="background: #f3f4f6; padding: 4px 12px; border-radius: 8px;">
+                                <label style="font-size: 0.875rem; color: var(--text-light);">Баллы:</label>
+                                <input type="number" min="0" value="${q.points}" onchange="updateQ('${q.id}', 'points', this.value)" style="margin:0; width: 80px; padding: 6px; border: none; background: transparent; font-weight: bold;">
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <div style="background: #f9fafb; padding: 16px; border-radius: 8px; border: 1px dashed var(--border);">
+                        <p style="margin-top:0; font-size: 0.875rem; color: var(--text-light); margin-bottom: 12px;">
+                            ${isTest && q.type !== 'text' ? 'Отметьте правильный вариант(ы):' : 'Варианты ответа:'}
+                        </p>
+                        ${q.type !== 'text' ? `
+                            ${q.options.map((opt, oIdx) => `
+                                <div class="flex" style="margin-bottom: 10px;">
+                                    ${isTest ? `
+                                        <input type="${q.type === 'checkbox' ? 'checkbox' : 'radio'}" name="correct_${q.id}" 
+                                            ${q.correctAnswers.includes(opt) ? 'checked' : ''} 
+                                            onchange="toggleCorrect('${q.id}', '${opt}',${q.type === 'checkbox'})">
+                                    ` : '<div style="width: 18px;">•</div>'}
+                                    <input type="text" value="${opt}" onchange="updateOption('${q.id}', ${oIdx}, this.value)" style="margin:0; flex: 1;">
+                                    <button class="btn btn-outline btn-small" onclick="removeOption('${q.id}', ${oIdx})" title="Удалить вариант">✕</button>
+                                </div>
+                            `).join('')}
+                            <button class="btn btn-outline btn-small" style="margin-top: 8px;" onclick="addOption('${q.id}')">+ Добавить вариант</button>
+                        ` : `
+                            ${isTest ? `
+                                <input type="text" placeholder="Введите эталонный правильный ответ..." value="${q.correctAnswers[0] || ''}" onchange="updateCorrectText('${q.id}', this.value)" style="margin:0;">
+                                <small style="color: var(--text-light); display: block; margin-top: 4px;">Студент должен будет ввести текст точно так же (регистр не учитывается).</small>
+                            ` : '<div style="color: var(--text-light); font-style: italic;">Студент введет свой текст.</div>'}
+                        `}
+                    </div>
+                </div>
+            `).join('');
+
+            // Инициализация Drag and Drop
+            new Sortable(document.getElementById('constructor-questions'), {
+                animation: 150,
+                handle: '.q-constructor-card',
+                ghostClass: 'sortable-ghost',
+                onEnd: function (evt) {
+                    const item = editingSurvey.questions.splice(evt.oldIndex, 1)[0];
+                    editingSurvey.questions.splice(evt.newIndex, 0, item);
+                    renderConstructor(); // Перерендер для правильной нумерации
+                }
+            });
+        }
+
+        async function saveSurvey() {
+            editingSurvey.title = document.getElementById('const-title').value.trim();
+            editingSurvey.description = document.getElementById('const-desc').value.trim();
+            
+            if (!editingSurvey.title) return alert("Введите название теста");
+            if (editingSurvey.questions.length === 0) return alert("Добавьте хотя бы один вопрос");
+            
+            // Валидация вопросов
+            for(let q of editingSurvey.questions) {
+                if(!q.text) return alert("Все вопросы должны содержать текст");
+                if(editingSurvey.type === 'test' && q.correctAnswers.length === 0 && q.type !== 'text') {
+                    return alert(`Вопрос "${q.text}" не имеет правильного ответа!`);
+                }
+            }
+            
+            const payload = {
+                ...editingSurvey,
+                authorLogin: currentUser.login,
+                isOpen: true,
+                createdAt: new Date().toISOString()
+            };
+
+            try {
+                await db.collection('surveys').add(payload);
+                alert("Успешно сохранено и опубликовано!");
+                
+                // Сброс формы
+                editingSurvey = { title: '', description: '', type: 'test', questions: [] };
+                document.getElementById('const-title').value = '';
+                document.getElementById('const-desc').value = '';
+                document.getElementById('const-type').value = 'test';
+                renderConstructor();
+                
+                loadTestsForResultsSelect();
+                document.querySelector('.tab[onclick*="tab-my-tests"]').click();
+            } catch (e) {
+                alert("Ошибка сохранения.");
+                console.error(e);
+            }
+        }
+
+        // -- Результаты --
+        async function loadTestsForResultsSelect() {
+            const snap = await db.collection('surveys').where('authorLogin', '==', currentUser.login).get();
+            const sel = document.getElementById('results-test-select');
+            sel.innerHTML = '<option value="">-- Выберите тест для просмотра --</option>';
+            snap.forEach(doc => {
+                sel.innerHTML += `<option value="${doc.id}">${doc.data().title}</option>`;
+            });
+        }
+
+        async function loadResults() {
+            const surveyId = document.getElementById('results-test-select').value;
+            const tbody = document.getElementById('teacher-results-table');
+            const btnExport = document.getElementById('btn-export');
+            tbody.innerHTML = '';
+            
+            if (!surveyId) {
+                btnExport.disabled = true;
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Выберите тест</td></tr>';
+                return;
+            }
+
+            const snap = await db.collection('submissions').where('surveyId', '==', surveyId).orderBy('submittedAt', 'desc').get();
+            
+            if (snap.empty) {
+                btnExport.disabled = true;
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Пока нет ответов от студентов</td></tr>';
+                return;
+            }
+
+            btnExport.disabled = false;
+            snap.forEach(doc => {
+                const sub = doc.data();
+                const date = new Date(sub.submittedAt).toLocaleString('ru-RU', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="font-weight: 500;">${sub.studentName}</td>
+                        <td>${sub.studentGroup}</td>
+                        <td>${date}</td>
+                        <td>
+                            <div class="flex" style="gap: 8px;">
+                                <span id="score-${doc.id}" style="font-size: 1.1rem; font-weight: bold; min-width: 25px;">${sub.totalPoints !== null ? sub.totalPoints : '—'}</span>
+                                ${sub.totalPoints !== null ? `
+                                    <div class="flex-col" style="gap: 2px;">
+                                        <button class="btn btn-outline btn-small" style="padding: 0 4px; line-height: 1;" onclick="adjustPoints('${doc.id}', 1)" title="Добавить балл">▲</button>
+                                        <button class="btn btn-outline btn-small" style="padding: 0 4px; line-height: 1;" onclick="adjustPoints('${doc.id}', -1)" title="Снять балл">▼</button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </td>
+                        <td>
+                            <button class="btn btn-small" onclick="viewResultDetails('${doc.id}', '${surveyId}')">Смотреть бланк</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function adjustPoints(subId, delta) {
+            const docRef = db.collection('submissions').doc(subId);
+            const doc = await docRef.get();
+            const currentPoints = doc.data().totalPoints || 0;
+            const newPoints = Math.max(0, currentPoints + delta); // не уходим в минус
+            await docRef.update({ totalPoints: newPoints });
+            document.getElementById(`score-${subId}`).innerText = newPoints;
+        }
+
+        async function exportResultsToExcel() {
+            const surveyId = document.getElementById('results-test-select').value;
+            const testName = document.getElementById('results-test-select').options[document.getElementById('results-test-select').selectedIndex].text;
+            if(!surveyId) return;
+            
+            const snap = await db.collection('submissions').where('surveyId', '==', surveyId).orderBy('studentGroup').orderBy('studentName').get();
+            const data = [];
+            
+            snap.forEach(doc => {
+                const d = doc.data();
+                data.push({ 
+                    "ФИО": d.studentName, 
+                    "Группа": d.studentGroup, 
+                    "Дата сдачи": new Date(d.submittedAt).toLocaleString('ru-RU'), 
+                    "Итоговый балл": d.totalPoints !== null ? d.totalPoints : 'Анкета' 
+                });
+            });
+            
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Результаты");
+            XLSX.writeFile(wb, `Результаты - ${testName.substring(0, 20)}.xlsx`);
+        }
+
+        async function viewResultDetails(subId, surveyId) {
+            const [subDoc, surDoc] = await Promise.all([
+                db.collection('submissions').doc(subId).get(),
+                db.collection('surveys').doc(surveyId).get()
+            ]);
+            
+            const sub = subDoc.data();
+            const sur = surDoc.data();
+            
+            let html = `
+                <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+                    <div style="font-size: 1.1rem; font-weight: bold;">${sub.studentName}</div>
+                    <div style="color: var(--text-light);">Группа: ${sub.studentGroup}</div>
+                    <div style="color: var(--text-light);">Сдано: ${new Date(sub.submittedAt).toLocaleString('ru-RU')}</div>
+                    ${sur.type === 'test' ? `<div style="margin-top: 8px; font-weight: bold; color: var(--primary);">Итог: ${sub.totalPoints} баллов</div>` : ''}
+                </div>
+            `;
+
+            sur.questions.forEach((q, i) => {
+                const sAnsArray = sub.answers[q.id] || [];
+                const isCorrect = sur.type === 'test' ? checkAnswerIsCorrect(q, sAnsArray) : true;
+                const bgClass = sur.type === 'test' ? (isCorrect ? 'correct-ans' : 'wrong-ans') : 'student-answer-row';
+
+                html += `
+                    <div class="student-answer-row ${bgClass}">
+                        <div style="font-weight: 600; margin-bottom: 8px;">${i+1}. ${q.text}</div>
+                        <div style="margin-bottom: 4px;">
+                            <span style="color: var(--text-light);">Ответ студента:</span> 
+                            <strong>${sAnsArray.length ? sAnsArray.join(', ') : '<span style="color:var(--danger)">Нет ответа</span>'}</strong>
+                        </div>
+                        ${sur.type === 'test' ? `
+                            <div style="font-size: 0.875rem; border-top: 1px dashed rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px;">
+                                Правильный ответ: <strong>${q.correctAnswers.join(', ')}</strong> 
+                                (Балл: ${isCorrect ? q.points : 0}/${q.points})
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            document.getElementById('result-details-content').innerHTML = html;
+            showModal('result-details-modal');
+        }
+
+        function closeResultModal() { hideModal('result-details-modal'); }
+
+        function checkAnswerIsCorrect(q, sAnsArray) {
+            if (sAnsArray.length === 0) return false;
+            
+            if (q.type === 'text') {
+                return q.correctAnswers.some(a => a.toLowerCase().trim() === sAnsArray[0].toLowerCase().trim());
+            } else if (q.type === 'checkbox') {
+                const correct = [...q.correctAnswers].sort();
+                const student = [...sAnsArray].sort();
+                return JSON.stringify(correct) === JSON.stringify(student);
+            } else {
+                return q.correctAnswers[0] === sAnsArray[0];
+            }
+        }
+
+        // ================= СТУДЕНТ =================
+        async function initStudentMode() {
+            showScreen('screen-student');
+            const content = document.getElementById('student-content');
+            content.innerHTML = `
+                <div class="card" style="text-align:center; padding: 60px 20px;">
+                    <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px;"></div>
+                    <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+                    <h3>Загрузка теста...</h3>
+                </div>`;
+
+            studentListenerUnsubscribe = db.collection('surveys').doc(currentSurveyId).onSnapshot((doc) => {
+                if (!doc.exists) {
+                    content.innerHTML = '<div class="card" style="text-align:center; color: var(--danger); padding: 50px;"><h2>Ошибка 404</h2><p>Тест не найден или был удален.</p></div>';
+                    return;
+                }
+
+                const data = doc.data();
+                currentClientSurveyData = data;
+
+                if (data.isOpen) {
+                    if (!isTestOpenClientSide) {
+                        isTestOpenClientSide = true;
+                        renderStudentUI(data);
+                    }
+                } else {
+                    // Закрытие в реальном времени
+                    if (isTestOpenClientSide) {
+                        isTestOpenClientSide = false;
+                        handleTeacherClosedTest();
+                    } else {
+                        // Изначально зашли на закрытый
+                        content.innerHTML = `
+                            <div class="card" style="text-align:center; padding: 60px 20px;">
+                                <h2 style="color: var(--danger);">Доступ закрыт</h2>
+                                <p style="color: var(--text-light); font-size: 1.1rem;">Преподаватель завершил прием ответов для данного теста.</p>
+                            </div>`;
+                    }
+                }
+            }, (error) => {
+                content.innerHTML = `<div class="card" style="text-align:center; padding: 40px;"><h3>Ошибка подключения</h3><p>${error.message}</p></div>`;
+            });
+        }
+
+        function renderStudentUI(survey) {
+            const content = document.getElementById('student-content');
+            
+            let html = `
+                <div class="card" style="border-top: 6px solid var(--primary);">
+                    <h1 style="margin-bottom: 8px;">${survey.title}</h1>
+                    ${survey.description ? `<p style="color: var(--text-light); white-space: pre-wrap; font-size: 1.05rem;">${survey.description}</p>` : ''}
+                </div>
+                
+                <div class="card" style="border-left: 4px solid var(--danger);">
+                    <h3 style="margin-top:0;">Обязательные данные</h3>
+                    <div class="flex" style="gap: 16px; flex-wrap: wrap;">
+                        <div style="flex: 2; min-width: 250px;">
+                            <label style="font-size: 0.875rem; color: var(--text-light);">Фамилия Имя Отчество *</label>
+                            <input type="text" id="s-name" placeholder="Введите ФИО" required style="margin-bottom: 0;">
+                        </div>
+                        <div style="flex: 1; min-width: 150px;">
+                            <label style="font-size: 0.875rem; color: var(--text-light);">Учебная группа *</label>
+                            <input type="text" id="s-group" placeholder="Например: ПИ-20" required style="margin-bottom: 0;">
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            survey.questions.forEach((q, i) => {
+                html += `<div class="card">
+                    <h3 style="margin-top:0; font-weight: 600; font-size: 1.1rem;">${i+1}. ${q.text} ${survey.type === 'test' ? `<span style="font-weight:normal; font-size: 0.85rem; color: var(--text-light); background: #f3f4f6; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">${q.points} балл(а)</span>` : ''}</h3>
+                    <div class="flex-col" style="margin-top: 16px;">`;
+
+                if (q.type === 'text') {
+                    html += `<input type="text" placeholder="Ваш ответ..." oninput="setStudentAnswer('${q.id}', 'text', this.value)" style="margin-bottom:0;">`;
+                } else if (q.type === 'radio') {
+                    q.options.forEach(opt => {
+                        html += `<label class="flex"><input type="radio" name="q_${q.id}" value="${opt}" onchange="setStudentAnswer('${q.id}', 'radio', this.value)"> <span style="font-size: 1.05rem;">${opt}</span></label>`;
+                    });
+                } else if (q.type === 'checkbox') {
+                    q.options.forEach(opt => {
+                        html += `<label class="flex"><input type="checkbox" value="${opt}" onchange="setStudentAnswer('${q.id}', 'checkbox', this.value, this.checked)"> <span style="font-size: 1.05rem;">${opt}</span></label>`;
+                    });
+                } else if (q.type === 'select') {
+                    html += `<select onchange="setStudentAnswer('${q.id}', 'select', this.value)" style="margin-bottom:0; padding: 14px;">
+                        <option value="" disabled selected>-- Выберите вариант --</option>
+                        ${q.options.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                    </select>`;
+                }
+                
+                html += `</div></div>`;
+            });
+
+            html += `
+                <button class="btn btn-success" style="width: 100%; font-size: 1.2rem; padding: 16px; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);" onclick="manualSubmit()">
+                    Отправить результаты
+                </button>
+            `;
+            
+            content.innerHTML = html;
+            window.scrollTo(0, 0);
+        }
+
+        function setStudentAnswer(qId, type, value, isChecked = false) {
+            if (!studentAnswers[qId]) studentAnswers[qId] = [];
+            
+            if (type === 'checkbox') {
+                if (isChecked) studentAnswers[qId].push(value);
+                else studentAnswers[qId] = studentAnswers[qId].filter(v => v !== value);
+            } else {
+                studentAnswers[qId] = [value];
+            }
+        }
+
+        let isSubmitting = false;
+
+        async function manualSubmit() {
+            if (isSubmitting) return;
+            
+            const name = document.getElementById('s-name').value.trim();
+            const group = document.getElementById('s-group').value.trim();
+
+            if (!name || !group) {
+                alert("Обязательно укажите ФИО и Группу!");
+                document.getElementById('s-name').focus();
+                return;
+            }
+
+            if(confirm("Вы уверены, что хотите завершить тест и отправить ответы?")) {
+                isSubmitting = true;
+                await processAndSendAnswers(name, group);
+            }
+        }
+
+        async function handleTeacherClosedTest() {
+            if (isSubmitting) return;
+            
+            const nameEl = document.getElementById('s-name');
+            const name = nameEl ? nameEl.value.trim() : '';
+            const group = (document.getElementById('s-group') && document.getElementById('s-group').value.trim()) || "Не указана";
+
+            if (name) {
+                isSubmitting = true;
+                alert("ВНИМАНИЕ! Преподаватель досрочно закрыл тест. Ваши текущие ответы были отправлены автоматически.");
+                await processAndSendAnswers(name, group);
+            } else {
+                if (studentListenerUnsubscribe) studentListenerUnsubscribe();
+                document.getElementById('student-content').innerHTML = `
+                    <div class="card" style="text-align:center; padding: 60px 20px;">
+                        <h2 style="color: var(--danger);">Время вышло</h2>
+                        <p style="font-size: 1.1rem; color: var(--text-light);">Преподаватель закрыл тест до того, как вы ввели ФИО. Ваши ответы аннулированы.</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function processAndSendAnswers(name, group) {
+            let totalPoints = null;
+            
+            // Подсчет баллов 
+            if (currentClientSurveyData.type === 'test') {
+                totalPoints = 0;
+                currentClientSurveyData.questions.forEach(q => {
+                    const sAns = studentAnswers[q.id] || [];
+                    if (checkAnswerIsCorrect(q, sAns)) {
+                        totalPoints += q.points;
+                    }
+                });
+            }
+
+            try {
+                await db.collection('submissions').add({
+                    surveyId: currentSurveyId,
+                    studentName: name,
+                    studentGroup: group,
+                    submittedAt: new Date().toISOString(),
+                    answers: studentAnswers,
+                    totalPoints: totalPoints
+                });
+
+                if (studentListenerUnsubscribe) studentListenerUnsubscribe(); // Отключаем реалтайм
+                
+                document.getElementById('student-content').innerHTML = `
+                    <div class="card" style="text-align:center; padding: 60px 20px; border-top: 6px solid var(--success);">
+                        <div style="font-size: 60px; margin-bottom: 20px;">✅</div>
+                        <h1 style="color: var(--success); margin-bottom: 12px;">Ответы приняты!</h1>
+                        <p style="font-size: 1.1rem; color: var(--text-light);">Вы успешно завершили ${currentClientSurveyData.type === 'test' ? 'тест' : 'анкетирование'}.<br>Можете закрыть эту вкладку.</p>
+                    </div>
+                `;
+            } catch (e) {
+                console.error(e);
+                alert("Ошибка при отправке. Проверьте интернет-соединение.");
+                isSubmitting = false;
+            }
+        }
+    </script>
+</body>
+</html>
